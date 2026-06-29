@@ -612,10 +612,10 @@ SECURITY DEFINER
 SET search_path = orgpasscheck, pg_catalog
 AS $$
 BEGIN
-    IF session_user <> p_username
-       AND current_setting('is_superuser') <> 'on'
+    IF current_setting('is_superuser') <> 'on'
        AND NOT pg_has_role(session_user, 'orgpasscheck_admin', 'USAGE') THEN
-        RAISE EXCEPTION 'orgpasscheck: permission denied to grant expiry exemptions.';
+        RAISE EXCEPTION 'orgpasscheck: permission denied to grant expiry exemptions. '
+            'Only superusers and orgpasscheck_admin members may add exemptions.';
     END IF;
 
     INSERT INTO orgpasscheck.password_expiry_exemption (username, reason, expires_at)
@@ -642,10 +642,10 @@ SECURITY DEFINER
 SET search_path = orgpasscheck, pg_catalog
 AS $$
 BEGIN
-    IF session_user <> p_username
-       AND current_setting('is_superuser') <> 'on'
+    IF current_setting('is_superuser') <> 'on'
        AND NOT pg_has_role(session_user, 'orgpasscheck_admin', 'USAGE') THEN
-        RAISE EXCEPTION 'orgpasscheck: permission denied to remove expiry exemptions.';
+        RAISE EXCEPTION 'orgpasscheck: permission denied to remove expiry exemptions. '
+            'Only superusers and orgpasscheck_admin members may remove exemptions.';
     END IF;
 
     DELETE FROM orgpasscheck.password_expiry_exemption WHERE username = p_username;
@@ -734,14 +734,20 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = orgpasscheck, pg_catalog
 AS $$
+DECLARE
+    v_escaped TEXT;
 BEGIN
     IF current_setting('is_superuser') <> 'on'
        AND NOT pg_has_role(session_user, 'orgpasscheck_admin', 'USAGE') THEN
         RAISE EXCEPTION 'orgpasscheck: permission denied to modify the blacklist.';
     END IF;
 
+    -- Apply the same escaping used by add_blacklist so the lookup matches
+    -- what is actually stored (backslash first, then % and _).
+    v_escaped := replace(replace(replace(lower(p_pattern), '\', '\\'), '%', '\%'), '_', '\_');
+
     DELETE FROM orgpasscheck.password_blacklist
-    WHERE blacklisted_word = lower(p_pattern);
+    WHERE blacklisted_word = v_escaped;
 
     IF NOT FOUND THEN
         RAISE NOTICE 'Pattern "%" was not found in the blacklist.', lower(p_pattern);
