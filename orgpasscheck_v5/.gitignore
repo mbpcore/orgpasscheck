@@ -1,0 +1,19 @@
+# Build artifacts
+*.o
+*.so
+*.bc
+*.dylib
+
+# PostgreSQL regression test artifacts
+regression.diffs
+regression.out
+results/
+
+# Editor files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS files
+Thumbs.db

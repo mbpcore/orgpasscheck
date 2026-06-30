@@ -333,6 +333,7 @@ orgpasscheck_hook(const char *username,
             static const char *bl_sql =
                 "SELECT 1 FROM orgpasscheck.password_blacklist "
                 "WHERE  $1 LIKE '%' || blacklisted_word || '%' ESCAPE '\\' "
+                "  AND  (expires_at IS NULL OR expires_at > now()) "
                 "LIMIT  1";
 
             val1[0] = CStringGetTextDatum(lower_pw);

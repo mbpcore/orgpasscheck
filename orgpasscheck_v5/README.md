@@ -39,14 +39,11 @@ orgpasscheck intercepts every `CREATE ROLE` and `ALTER ROLE … PASSWORD` statem
 ```bash
 # Clone
 git clone https://github.com/mbpcore/orgpasscheck.git
-
 cd orgpasscheck
 
 # Build (adjust PG_CONFIG path as needed)
 make PG_CONFIG=/usr/lib/postgresql/16/bin/pg_config
-make install PG_CONFIG=/usr/pgsql-16/bin/pg_config
-make secure-permissions PG_CONFIG=/usr/pgsql-16/bin/pg_config
-
+sudo make install
 
 # Enable in postgresql.conf
 echo "shared_preload_libraries = 'orgpasscheck'" >> /etc/postgresql/16/main/postgresql.conf

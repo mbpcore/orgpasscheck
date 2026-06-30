@@ -612,10 +612,13 @@ SECURITY DEFINER
 SET search_path = orgpasscheck, pg_catalog
 AS $$
 BEGIN
-    IF session_user <> p_username
-       AND current_setting('is_superuser') <> 'on'
+    -- Granting a permanent expiry exemption is a privileged action.
+    -- It must NEVER be self-service: allowing session_user = p_username
+    -- would let any login role exempt themselves from expiry policy.
+    IF current_setting('is_superuser') <> 'on'
        AND NOT pg_has_role(session_user, 'orgpasscheck_admin', 'USAGE') THEN
-        RAISE EXCEPTION 'orgpasscheck: permission denied to grant expiry exemptions.';
+        RAISE EXCEPTION 'orgpasscheck: only superusers and orgpasscheck_admin '
+            'members may grant expiry exemptions.';
     END IF;
 
     INSERT INTO orgpasscheck.password_expiry_exemption (username, reason, expires_at)
@@ -642,10 +645,14 @@ SECURITY DEFINER
 SET search_path = orgpasscheck, pg_catalog
 AS $$
 BEGIN
-    IF session_user <> p_username
-       AND current_setting('is_superuser') <> 'on'
+    -- Removing an expiry exemption re-imposes policy on the target user.
+    -- This must NEVER be self-service: a user who already holds an
+    -- exemption should not be able to silently revoke or re-grant it
+    -- without admin oversight.
+    IF current_setting('is_superuser') <> 'on'
        AND NOT pg_has_role(session_user, 'orgpasscheck_admin', 'USAGE') THEN
-        RAISE EXCEPTION 'orgpasscheck: permission denied to remove expiry exemptions.';
+        RAISE EXCEPTION 'orgpasscheck: only superusers and orgpasscheck_admin '
+            'members may remove expiry exemptions.';
     END IF;
 
     DELETE FROM orgpasscheck.password_expiry_exemption WHERE username = p_username;
@@ -740,8 +747,12 @@ BEGIN
         RAISE EXCEPTION 'orgpasscheck: permission denied to modify the blacklist.';
     END IF;
 
+    -- Must apply the SAME escape chain used by add_blacklist() before
+    -- looking up the stored value, or patterns containing \, %, or _
+    -- can never be found and therefore can never be removed.
     DELETE FROM orgpasscheck.password_blacklist
-    WHERE blacklisted_word = lower(p_pattern);
+    WHERE blacklisted_word = replace(replace(replace(
+        lower(p_pattern), '\', '\\'), '%', '\%'), '_', '\_');
 
     IF NOT FOUND THEN
         RAISE NOTICE 'Pattern "%" was not found in the blacklist.', lower(p_pattern);
