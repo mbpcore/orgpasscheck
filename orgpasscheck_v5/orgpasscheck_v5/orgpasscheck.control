@@ -1,0 +1,7 @@
+# orgpasscheck extension control file
+comment         = 'Enterprise password policy enforcement for PostgreSQL 16+'
+default_version = '5.0'
+module_pathname = '$libdir/orgpasscheck'
+relocatable     = false
+superuser       = true
+schema          = orgpasscheck

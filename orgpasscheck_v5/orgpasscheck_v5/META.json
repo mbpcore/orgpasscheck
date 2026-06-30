@@ -1,0 +1,50 @@
+{
+   "name": "orgpasscheck",
+   "abstract": "Enterprise password policy enforcement extension for PostgreSQL 16+",
+   "description": "Enforces configurable password complexity, history reuse prevention, dictionary and blacklist checks, minimum age, and expiry policy via PostgreSQL's native check_password_hook. All checks fire on every CREATE ROLE / ALTER ROLE DDL path including raw SQL.",
+   "version": "5.0.0",
+   "maintainer": [
+      "Md. Masum Billah <mbpcore@gmail.com>"
+   ],
+   "license": "postgresql",
+   "prereqs": {
+      "runtime": {
+         "requires": {
+            "PostgreSQL": "16.0"
+         }
+      }
+   },
+   "provides": {
+      "orgpasscheck": {
+         "abstract": "Enterprise password policy enforcement",
+         "file": "orgpasscheck--5.0.sql",
+         "docfile": "README.md",
+         "version": "5.0.0"
+      }
+   },
+   "resources": {
+      "bugtracker": {
+         "web": "https://github.com/mbpcore/orgpasscheck/issues"
+      },
+      "repository": {
+         "url": "https://github.com/mbpcore/orgpasscheck.git",
+         "web": "https://github.com/mbpcore/orgpasscheck",
+         "type": "git"
+      }
+   },
+   "generated_by": "hand",
+   "meta-spec": {
+      "version": "1.0.0",
+      "url": "https://pgxn.org/meta/spec.txt"
+   },
+   "tags": [
+      "password",
+      "security",
+      "policy",
+      "authentication",
+      "compliance",
+      "enterprise",
+      "audit",
+      "hook"
+   ]
+}
