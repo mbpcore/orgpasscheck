@@ -149,11 +149,23 @@ orgpasscheck.allow_no_expiry_users = off
 
 **`policy_summary` view is readable by PUBLIC.** This view exposes all policy parameters (min_length, reuse_history, etc.) to any database user. This is intentional for usability — users can see what is required before setting a password. In high-security environments, restrict with: `REVOKE SELECT ON orgpasscheck.policy_summary FROM PUBLIC;`
 
-**Pre-hashed passwords are rejected.** If a client sends a pre-hashed password (`MD5` or `SCRAM-SHA-256` format), orgpasscheck cannot evaluate it against the policy and raises an error. Ensure clients are configured to send plaintext:
+**Plaintext is required — permanently, by design — and `password_encryption` cannot change that.** orgpasscheck's complexity, dictionary, blacklist, and reuse-history checks all need the real password (to count characters, match substrings, and compare against salted history hashes). None of that is possible against an already-hashed value, so the hook rejects any password whose `password_type` isn't plaintext.
+
+This is **not** a client misconfiguration you can fix with `password_encryption`. That setting only controls how the *server* encrypts a plaintext value it receives — it has no effect on the fact that, since PostgreSQL 10, `psql`'s `\password`, pgAdmin, and most drivers' "change password" helpers call `PQencryptPasswordConn()` and hash the password *client-side* before ever sending it, specifically so the plaintext never touches the wire or server logs. Because of this, **none of those tools can be used to set or change a password while orgpasscheck is installed** — the hook never receives plaintext from them, no matter how `password_encryption` is set.
+
+Use the extension's own wrapper functions instead, which pass the plaintext password directly so the hook can evaluate it:
 
 ```sql
-SET password_encryption = 'scram-sha-256';
+-- New user
+SELECT orgpasscheck.create_user('alice', 'Str0ng!Pass#9');
+
+-- Existing user changing their own (or, for an admin, another user's) password
+SELECT orgpasscheck.change_password('alice', 'NewStr0ng!Pass#2');
 ```
+
+Because the password appears as a plaintext SQL literal in these calls, treat them the same way you'd treat any other cleartext-password statement: avoid typing them where shell/`psql` history or `log_statement` would capture them (e.g. prefer piping from a file or an application layer over interactive typing), and rely on `orgpasscheck.ddl_audit_log` for a record of *that a change happened*, not of the password itself (it is never logged there).
+
+If your organization cannot tolerate losing `\password`/pgAdmin/driver-based password changes, orgpasscheck is not compatible with that requirement — this is the same fundamental trade-off PostgreSQL's own `contrib/passwordcheck` module faces, except passwordcheck resolves it by silently skipping checks on non-plaintext input rather than blocking the change. orgpasscheck instead fails closed, so that no password can ever bypass policy — evaluate which trade-off fits your environment before adopting it.
 
 **Password expiry is enforced by the SQL wrapper functions only.** The C hook enforces complexity, history, dictionary, blacklist, and minimum age. Password expiry (`VALID UNTIL`) is set by `orgpasscheck.create_user()` and `orgpasscheck.change_password()`. A superuser using raw DDL (`CREATE ROLE ... VALID UNTIL 'infinity'`) bypasses expiry enforcement. Restrict superuser access and use the wrapper functions for all user management.
 
