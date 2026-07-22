@@ -177,15 +177,38 @@ orgpasscheck_hook(const char *username,
 
     /* ------------------------------------------------------------------
      * GUARD: pre-hashed passwords cannot be evaluated for policy.
-     * Clients must send plaintext (password_encryption = scram-sha-256).
+     *
+     * This is a PERMANENT requirement, not a misconfiguration: every check
+     * below (complexity, dictionary, blacklist, reuse-history) needs the
+     * real password. password_encryption does not control this -- since
+     * PG10, psql's \password, pgAdmin, and most drivers' password-change
+     * helpers hash client-side via PQencryptPasswordConn() before sending,
+     * regardless of that setting, so the hook never sees plaintext from
+     * them. Operators must use orgpasscheck.create_user()/change_password()
+     * instead, which pass plaintext directly.
      * ------------------------------------------------------------------ */
     if (password_type != PASSWORD_TYPE_PLAINTEXT)
         ereport(ERROR,
                 (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                  errmsg("orgpasscheck: password must be supplied as plaintext "
-                        "so that policy checks can be performed. "
-                        "Set password_encryption = 'scram-sha-256' on the "
-                        "client and resend the password.")));
+                        "so that policy checks (complexity, dictionary, "
+                        "blacklist, and reuse-history) can be evaluated "
+                        "against the real password."),
+                 errdetail("This is a permanent requirement of this "
+                           "extension, not a misconfiguration. Client "
+                           "tools that pre-hash passwords before sending "
+                           "them -- psql's \\password, pgAdmin, and most "
+                           "drivers' password-change helpers -- cannot be "
+                           "used while orgpasscheck is installed, because "
+                           "the hook never sees the real password from "
+                           "them. Adjusting password_encryption will not "
+                           "change this."),
+                 errhint("Use orgpasscheck.change_password('%s', '<new "
+                         "password>') or orgpasscheck.create_user(...) "
+                         "instead, which pass the plaintext password "
+                         "directly and are the supported way to set or "
+                         "change any password under this policy.",
+                         safe_user)));
 
     /* ------------------------------------------------------------------
      * 1. LENGTH
